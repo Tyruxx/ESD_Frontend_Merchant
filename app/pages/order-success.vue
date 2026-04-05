@@ -40,11 +40,11 @@
 </script>
 
 <template class="px-8 py-8 flex mx-auto flex-col min-h-screen gap-4 w-sm">
-  <Empty>
+  <Empty class="gap-2">
     <EmptyTitle>Order #{{ verifyOrderResponse?.order_id }} has been successfully placed.</EmptyTitle>
     <EmptyDescription>Please go to Order page for further details</EmptyDescription>
     <EmptyContent>
-       <NuxtLink to="/order"><Button>Go Back to Home</Button></NuxtLink>
+       <NuxtLink to="/order"><Button>Go to Order</Button></NuxtLink>
     </EmptyContent>
   </Empty>
 </template>

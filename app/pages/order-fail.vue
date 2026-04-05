@@ -40,5 +40,11 @@
 </script>
 
 <template class="px-8 py-8 flex mx-auto flex-col min-h-screen gap-4 w-sm">
-  
+  <Empty class="gap-2">
+    <EmptyTitle>Order #{{ verifyOrderResponse?.order_id }} has not been successfully placed.</EmptyTitle>
+    <EmptyDescription>Payment failed. Please try again later.</EmptyDescription>
+    <EmptyContent>
+       <NuxtLink to="/"><Button>Go Back to Home</Button></NuxtLink>
+    </EmptyContent>
+  </Empty>
 </template>
