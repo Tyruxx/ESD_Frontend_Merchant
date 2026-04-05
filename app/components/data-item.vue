@@ -29,10 +29,19 @@
         // We add these for UI display purposes only
         merchant_name?: string;
         items_full_data: Item[];
+        sc_id: number
     };
 
     type Cart = SubmitOrderRequest[];
 
+    type ShoppingCenter = {
+            sc_name: string,
+            sc_id: number,
+            sc_address: string,
+            sc_loading_slots: string
+    }
+
+    const shoppingCenterState = await useState<ShoppingCenter | undefined>('shoppingCenterState');
     const itemState = await useState<Item | undefined >('itemState');
     const cartState = await useState<Cart | undefined>('cartState');
     const quantity = ref(0);
@@ -64,6 +73,7 @@ function updateIntoCart() {
         // Create a new order entry for this merchant
         merchantOrder = {
             merchant_id: item.merchant_id,
+            sc_id: shoppingCenterState.value?.sc_id ?? 0,
             customer_plate: "", // Default from API
             customer_id: "",    // Default from API
             payment_method: "", // Default from API
@@ -94,7 +104,7 @@ function updateIntoCart() {
 }
     onMounted(() => {
         const merchantId = itemState.value?.merchant_id;
-        if (merchantId && cartState.value) {
+        if (merchantId != undefined && cartState.value) {
             // Find the merchant order in the array first
             const merchantOrder = cartState.value.find(o => o.merchant_id === merchantId);
             

@@ -19,26 +19,7 @@ const statusMap: Record<number, { label: string; variant: 'default' | 'secondary
 }
 
 // Mock Data
-const orders = ref([
-  {
-    "order_id": 25,
-    "merchant_id": 10,
-    "order_status": 9,
-    "customer_plate": "ABC",
-    "order_items": [{ "order_id": 25, "item_id": 1, "item_qty": 2, "item_price": 3 }],
-    "eta": "2026-04-05T23:59:59.937Z",
-    "order_time": "2026-04-05T06:41:27Z",
-  },
-  {
-    "order_id": 26,
-    "merchant_id": 10,
-    "order_status": 1,
-    "customer_plate": "ABZ",
-    "order_items": [{ "order_id": 26, "item_id": 1, "item_qty": 1, "item_price": 3 }],
-    "eta": "2026-04-05T23:59:59.937Z",
-    "order_time": "2026-04-05T06:42:00Z",
-  }
-])
+const { data: orders, error } = await useLazyFetch(`/api/order-by-customer-id?customer_id=1`)
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleString([], { 
@@ -70,7 +51,7 @@ function goToHome() {
 
     <div class="flex flex-col gap-4">
       <Item
-        v-for="order in orders"
+        v-for="order in orders?.data"
         :key="order.order_id"
         variant="outline"
         class="flex flex-col items-start p-4 gap-4"
@@ -80,8 +61,11 @@ function goToHome() {
             <ItemTitle class="text-lg">Order #{{ order.order_id }}</ItemTitle>
             <ItemDescription>Plate: {{ order.customer_plate }}</ItemDescription>
           </div>
-          <Badge :variant="statusMap[order.order_status]?.variant || 'outline'">
-            {{ statusMap[order.order_status]?.label || 'UNKNOWN' }}
+          <Badge :variant="statusMap[order.order_status]?.variant || 'outline'" v-if="order.order_status != undefined">
+            {{ statusMap[order.order_status]?.label }}
+          </Badge>
+          <Badge variant="outline" v-else>
+            UNKNOWN
           </Badge>
         </div>
 
@@ -95,7 +79,7 @@ function goToHome() {
           >
             <span class="flex gap-2">
               <span class="font-bold text-primary">{{ item.item_qty }}x</span>
-              Item #{{ item.item_id }}
+              Item #{{ item.item_id}}
             </span>
             <span class="font-medium">${{ (item.item_price * item.item_qty).toFixed(2) }}</span>
           </div>
@@ -106,22 +90,22 @@ function goToHome() {
         <div class="flex flex-col gap-3 w-full">
           <div class="flex items-center gap-2 text-xs text-muted-foreground">
             <Clock class="w-3 h-3" />
-            <span>ETA: {{ formatDate(order.eta) }}</span>
+            <span>ETA: {{ formatDate(order.eta ?? "") }}</span>
           </div>
           
           <div class="flex justify-between items-center w-full">
              <div class="text-xs text-muted-foreground">
-               Ordered: {{ formatDate(order.order_time) }}
+               Ordered: {{ formatDate(order.eta ?? "") }}
              </div>
              <div class="text-lg font-bold">
-               Total: ${{ calculateTotal(order.order_items).toFixed(2) }}
+               Total: ${{ calculateTotal(order.order_items ?? []).toFixed(2) }}
              </div>
           </div>
         </div>
       </Item>
     </div>
 
-    <div v-if="orders.length === 0" class="flex flex-col items-center justify-center py-20 text-center">
+    <div v-if="orders?.data.length === 0" class="flex flex-col items-center justify-center py-20 text-center">
       <Package class="w-12 h-12 text-muted-foreground mb-4" />
       <h3 class="text-lg font-medium">No orders yet</h3>
       <p class="text-sm text-muted-foreground">When you place an order, it will appear here.</p>

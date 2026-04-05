@@ -27,6 +27,18 @@
       item_price: number,
       is_on_sale: boolean
     }
+
+    type Merchant = {
+        data: {
+            merchant_id: number,
+            sc_id: number,
+            merchant_name: string,
+            opening_time: string,
+            closing_time: string,
+            contact_number: string,
+            email: string
+        }
+    }
     
     type OrderItem = {
     item_id: number;
@@ -43,6 +55,7 @@
         // We add these for UI display purposes only
         merchant_name?: string;
         items_full_data: Item[];
+        sc_id: number
     };
 
     type Cart = SubmitOrderRequest[];
@@ -94,6 +107,11 @@
         navigateTo('/');
     }
 
+    async function getMerchantName(merchantId: number, scId: number) {
+        const { data } = await useFetch<Merchant>(`/api/merchant-by-sc_id-by-merchant_id?sc_id=${scId}merchant_id=${merchantId}`)
+        return data.value?.data.merchant_name
+    }
+
 </script>
 
 <template>
@@ -125,7 +143,7 @@
                 </div>
                 <div class="flex flex-row w-full justify-between items-center" v-for="item of cart.items_full_data">
                     <div class="w-full">
-                        <ItemTitle>{{ item.item_name}}</ItemTitle>
+                        <ItemTitle>{{ item.item_name }}</ItemTitle>
                         <ItemDescription>${{ item.item_price }} each</ItemDescription>
                     </div>
                     <div class="font-semibold flex flex-col items-end gap-1">
