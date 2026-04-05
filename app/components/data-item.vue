@@ -6,14 +6,32 @@
     
 
     type Item = {
-        item_id: number,
-        merchant_id: number,
-        item_name: string,
-        item_qty: number,
-        item_price: number,
-        is_on_sale: boolean
+      item_id: number,
+      merchant_id: number,
+      item_name: string,
+      item_qty: number,
+      item_price: number,
+      is_on_sale: boolean
+    }
+    
+    type OrderItem = {
+    item_id: number;
+    item_qty: number;
     };
-    type Cart = Record<string,Item[]>;
+
+    type SubmitOrderRequest = {
+        merchant_id: number;
+        customer_plate: string;
+        customer_id: string;
+        payment_method: string;
+        item_list: OrderItem[];
+        eta: string;
+        // We add these for UI display purposes only
+        merchant_name?: string;
+        items_full_data: Item[];
+    };
+
+    type Cart = SubmitOrderRequest[];
 
     const itemState = await useState<Item | undefined >('itemState');
     const cartState = await useState<Cart | undefined>('cartState');
@@ -33,44 +51,61 @@
         itemState.value = undefined;
     }
 
-    function updateIntoCart() {
-        const item = itemState.value;
-        if (!item) return;
+function updateIntoCart() {
+    const item = itemState.value;
+    if (!item) return;
 
-        // Ensure cartState is initialized
-        if (!cartState.value) {
-            cartState.value = {};
+    if (!cartState.value) cartState.value = [];
+
+    // Find the order for this specific merchant
+    let merchantOrder = cartState.value.find(order => order.merchant_id === item.merchant_id);
+
+    if (!merchantOrder) {
+        // Create a new order entry for this merchant
+        merchantOrder = {
+            merchant_id: item.merchant_id,
+            customer_plate: "", // Default from API
+            customer_id: "",    // Default from API
+            payment_method: "", // Default from API
+            eta: new Date().toISOString(),
+            item_list: [],
+            items_full_data: []
+        };
+        cartState.value.push(merchantOrder);
+    }
+
+    const existingItemIdx = merchantOrder.item_list.findIndex(i => i.item_id === item.item_id);
+
+    if (quantity.value <= 0) {
+        // Remove item if quantity is 0
+        if (existingItemIdx > -1) {
+            merchantOrder.item_list.splice(existingItemIdx, 1);
+            merchantOrder.items_full_data.splice(existingItemIdx, 1);
         }
-
-        const merchantId = item.merchant_id.toString();
-        
-        // Initialize merchant array if it doesn't exist
-        if (!cartState.value[merchantId]) {
-            cartState.value[merchantId] = [];
-        }
-
-        // Check if THIS specific item is already in the cart for this merchant
-        const existingItem = cartState.value[merchantId].find(i => i.item_id === item.item_id);
-
-        if (existingItem) {
-            // BUG FIX: Update quantity instead of doing nothing
-            existingItem.item_qty = quantity.value;
+    } else {
+        if (existingItemIdx > -1 && merchantOrder.item_list[existingItemIdx] != undefined && merchantOrder.items_full_data[existingItemIdx] != undefined) {
+            merchantOrder.item_list[existingItemIdx].item_qty = quantity.value;
+            merchantOrder.items_full_data[existingItemIdx].item_qty = quantity.value;
         } else {
-            // Add new item to the start of the list
-            cartState.value[merchantId].unshift({
-                ...item,
-                item_qty: quantity.value
-            });
+            merchantOrder.item_list.unshift({ item_id: item.item_id, item_qty: quantity.value });
+            merchantOrder.items_full_data.unshift({ ...item, item_qty: quantity.value });
         }
     }
+}
     onMounted(() => {
-    const merchantId = itemState.value?.merchant_id.toString();
-    if (merchantId && cartState.value?.[merchantId]) {
-        const inCart = cartState.value[merchantId].find(i => i.item_id === itemState.value?.item_id);
-        if (inCart) {
-            quantity.value = inCart.item_qty;
+        const merchantId = itemState.value?.merchant_id;
+        if (merchantId && cartState.value) {
+            // Find the merchant order in the array first
+            const merchantOrder = cartState.value.find(o => o.merchant_id === merchantId);
+            
+            if (merchantOrder) {
+                // Then find the specific item within that merchant's list
+                const inCart = merchantOrder.item_list.find(i => i.item_id === itemState.value?.item_id);
+                if (inCart) {
+                    quantity.value = inCart.item_qty;
+                }
+            }
         }
-    }
     });
 </script>
 <template>

@@ -17,10 +17,11 @@ import {
 } from '@/components/ui/sidebar';
 
 import { Button } from '@/components/ui/button'
-import { ShoppingBag, ShoppingCart } from 'lucide-vue-next';
+import { ShoppingBag, ShoppingCart, GalleryVerticalEnd } from 'lucide-vue-next';
 function goToCartPage() {
   navigateTo('/cart');
 }
+
 type Item = {
   item_id: number,
   merchant_id: number,
@@ -30,7 +31,23 @@ type Item = {
   is_on_sale: boolean
 }
 
-type Cart = Record<string,Item[]>;
+type OrderItem = {
+  item_id: number;
+  item_qty: number;
+};
+
+type SubmitOrderRequest = {
+    merchant_id: number;
+    customer_plate: string;
+    customer_id: number;
+    payment_method: string;
+    item_list: OrderItem[];
+    eta: string;
+    merchant_name?: string;
+    items_full_data: Item[];
+};
+
+type Cart = SubmitOrderRequest[];
 const cartState = useState<Cart | undefined>('cartState');
 
 
@@ -39,8 +56,8 @@ const totalItems = computed(() => {
       return 0
     }
     const finalAmount = ref(0)
-    for (const items of Object.entries(cartState.value ?? {})) {
-      for (const item of items[1]) {
+    for (const merchants of Object.entries(cartState.value ?? [])) {
+      for (const item of merchants[1].item_list) {
         finalAmount.value += item.item_qty
       }
     }
@@ -73,9 +90,14 @@ const totalItems = computed(() => {
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton as-child>
-                  <a href="#">
+                  <NuxtLink to="/">
                     <span>Home</span>
-                  </a>
+                  </NuxtLink>
+                </SidebarMenuButton>
+                <SidebarMenuButton as-child>
+                  <NuxtLink to="/order">
+                    <span>Order</span>
+                  </NuxtLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
@@ -86,7 +108,7 @@ const totalItems = computed(() => {
       <SidebarRail />
     </Sidebar>
     <SidebarInset>
-      <header class="flex-1 px-3 py-5 h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
+      <header class="flex px-3 py-5 h-fit shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
         <div class="flex items-center gap-2 px-4 justify-between">
           <SidebarTrigger class="-ml-1 h-5 w-5" />
           <Button class="flex flex-row" @click="goToCartPage()">

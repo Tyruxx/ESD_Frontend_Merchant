@@ -15,6 +15,7 @@
     ItemMedia,
     ItemTitle,
     } from '@/components/ui/item'
+    import { Input } from '@/components/ui/input'
     import { MinusIcon, PlusIcon, ChevronLeft } from 'lucide-vue-next'
 
 
@@ -26,31 +27,75 @@
       item_price: number,
       is_on_sale: boolean
     }
+    
+    type OrderItem = {
+    item_id: number;
+    item_qty: number;
+    };
 
-    type Cart = Record<string,Item[]>;
+    type SubmitOrderRequest = {
+        merchant_id: number;
+        customer_plate: string;
+        customer_id: number;
+        payment_method: string;
+        item_list: OrderItem[];
+        eta: string;
+        // We add these for UI display purposes only
+        merchant_name?: string;
+        items_full_data: Item[];
+    };
+
+    type Cart = SubmitOrderRequest[];
+
+    const plate_number = ref("")
+
     const cartState = await useState<Cart | undefined>('cartState');
-    function updateQuantity(type: string, merchant_id: number, item_id: number) {
-        const mId = merchant_id.toString();
-        const merchantItems = cartState.value?.[mId];
-        
-        if (!merchantItems) return;
 
-        const item = merchantItems.find(i => i.item_id === item_id);
-        
-        if (item) {
+    function updateQuantity(type: string, merchant_id: number, item_id: number) {
+        const order = cartState.value?.find(o => o.merchant_id === merchant_id);
+        if (!order) return;
+
+        const itemRef = order.item_list.find(i => i.item_id === item_id);
+        const fullData = order.items_full_data.find(i => i.item_id === item_id);
+
+        if (itemRef && fullData) {
             if (type === "minus") {
-                if (item.item_qty > 0) item.item_qty--;
+                if (itemRef.item_qty > 0) {
+                    itemRef.item_qty--;
+                    fullData.item_qty--;
+                }
             } else {
-                // Note: You might want to check against a 'stock' limit here if available
-                item.item_qty++;
+                itemRef.item_qty++;
+                fullData.item_qty++;
             }
+        }
     }
-}
+
+    async function submitOrder(order: SubmitOrderRequest) {
+        try {
+            const response = await $fetch('/api/submit-order', {
+                method: 'POST',
+                body: {
+                    merchant_id: order.merchant_id,
+                    customer_plate: plate_number.value,
+                    customer_id: 1,
+                    payment_method: "STRIPE",
+                    item_list: order.item_list, // Match the API field name
+                    eta: new Date().toISOString()
+                }
+            })
+            window.location.href = response.payment_url
+        } catch (e) {
+            alert('Submit Order Failed')
+        }
+    }
+
     function goToHome() {
         navigateTo('/');
     }
 
 </script>
+
 <template>
   <div class="px-8 py-8 flex mx-auto flex-col min-h-screen gap-4 w-sm">
         <div>
@@ -67,7 +112,7 @@
             <Item
                 variant="outline"
                 class="cursor-pointer flex flex-col items-start"
-                v-for="(cart, merchant_id) of cartState"
+                v-for="cart of cartState"
             >
                 <div class="flex flex-row gap-3">
                     <div>
@@ -76,11 +121,11 @@
                         <AvatarFallback>SC</AvatarFallback>
                         </Avatar>
                     </div>
-                    <ItemTitle class="text-base">{{ merchant_id }}</ItemTitle>
+                    <ItemTitle class="text-base">{{ cart.merchant_name }}</ItemTitle>
                 </div>
-                <div class="flex flex-row w-full justify-between items-center" v-for="item of cart">
+                <div class="flex flex-row w-full justify-between items-center" v-for="item of cart.items_full_data">
                     <div class="w-full">
-                        <ItemTitle>{{ item.item_name }}</ItemTitle>
+                        <ItemTitle>{{ item.item_name}}</ItemTitle>
                         <ItemDescription>${{ item.item_price }} each</ItemDescription>
                     </div>
                     <div class="font-semibold flex flex-col items-end gap-1">
@@ -93,12 +138,11 @@
                     </div>
                 </div>
                 <div class="flex flex-row w-full justify-between items-center">
-                    <div class="w-full">
-                        <ItemDescription></ItemDescription>
-                        <ItemTitle class="text-base"></ItemTitle>
-                    </div>
-                    <div class="font-semibold flex flex-col items-end gap-1">
-                        <Button>Submit Order</Button>
+                      <div class="flex flex-row w-full items-center space-x-2">
+                        <Input type="text" placeholder="Enter plate number..." />
+                        <Button type="submit" @click="submitOrder(cart)">
+                            Submit
+                        </Button>
                     </div>
                 </div>
             </Item>

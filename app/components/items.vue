@@ -27,6 +27,7 @@
   EmptyTitle,
 } from '@/components/ui/empty'
 
+
   type Merchant = {
       merchant_id: number,
       sc_id: number,

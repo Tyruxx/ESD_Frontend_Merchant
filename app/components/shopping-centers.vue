@@ -195,7 +195,7 @@
     InputGroupText,
     InputGroupTextarea,
   } from '@/components/ui/input-group';
-  import { SearchIcon } from 'lucide-vue-next';
+  import { SearchIcon, BadgeAlert } from 'lucide-vue-next';
   import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
   import { Button } from '@/components/ui/button'
   import {
