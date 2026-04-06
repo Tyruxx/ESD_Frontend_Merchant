@@ -18,6 +18,8 @@ const props = defineProps<{
 }>()
 
 const merchantId = ref('')
+const password = ref('')
+
 const userSession = useState<string>('user_session', () => '')
 
 // --- 1. PERSISTENCE LOGIC ---
@@ -43,11 +45,12 @@ onMounted(() => {
 // --- 2. ACTIONS ---
 function setUserSession() {
   const id = merchantId.value.trim()
+  const pass = password.value.trim()
   
   // Logic check: only '10' is allowed for this demo
-  if (id !== '10') {
-    toast.error('Invalid Merchant ID', {
-      description: 'Please use the demo ID "10" to access the dashboard.'
+  if (id !== '10' || pass !== '10') {
+    toast.error('Invalid Merchant ID or Password', {
+      description: 'Please use the demo credentials to login.'
     })
     return
   }
@@ -61,6 +64,8 @@ function setUserSession() {
 // Helper to quickly fill the ID
 function useDemo() {
   merchantId.value = '10'
+  password.value = '10' // Set demo password as well
+  toast.success('Demo credentials filled! Click Login to proceed.')
 }
 </script>
 
@@ -111,6 +116,18 @@ function useDemo() {
           >
             Login
           </Button>
+        </Field>
+
+        <Field>
+          <FieldLabel for="customerId">Password</FieldLabel>
+          <Input
+            id="customerId"
+            type="password" 
+            placeholder="e.g. 1"
+            v-model="password"
+            required
+            class="h-11"
+          />
         </Field>
       </FieldGroup>
     </form>
