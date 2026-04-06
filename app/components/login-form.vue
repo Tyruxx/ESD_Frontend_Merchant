@@ -95,6 +95,18 @@ function useDemo() {
           />
         </Field>
 
+        <Field>
+          <FieldLabel for="customerId">Password</FieldLabel>
+          <Input
+            id="customerId"
+            type="password" 
+            placeholder="e.g. 1"
+            v-model="password"
+            required
+            class="h-11"
+          />
+        </Field>
+
         <div 
           @click="useDemo"
           class="flex items-center gap-3 p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 cursor-pointer transition-colors border-dashed"
@@ -116,18 +128,6 @@ function useDemo() {
           >
             Login
           </Button>
-        </Field>
-
-        <Field>
-          <FieldLabel for="customerId">Password</FieldLabel>
-          <Input
-            id="customerId"
-            type="password" 
-            placeholder="e.g. 1"
-            v-model="password"
-            required
-            class="h-11"
-          />
         </Field>
       </FieldGroup>
     </form>
