@@ -17,52 +17,46 @@ import {
 } from '@/components/ui/sidebar';
 
 import { Button } from '@/components/ui/button'
-import { ShoppingBag, ShoppingCart, GalleryVerticalEnd } from 'lucide-vue-next';
-function goToCartPage() {
-  navigateTo('/cart');
-}
+import { GalleryVerticalEnd } from 'lucide-vue-next';
+import { computed, watch, onMounted } from 'vue'
 
-type Item = {
-  item_id: number,
-  merchant_id: number,
-  item_name: string,
-  item_qty: number,
-  item_price: number,
-  is_on_sale: boolean
-}
+// --- 1. SESSION STATE ---
+const userSession = useState<string>('user_session', () => '')
 
-type OrderItem = {
-  item_id: number;
-  item_qty: number;
-};
-
-type SubmitOrderRequest = {
-    merchant_id: number;
-    customer_plate: string;
-    customer_id: number;
-    payment_method: string;
-    item_list: OrderItem[];
-    eta: string;
-    merchant_name?: string;
-    items_full_data: Item[];
-};
-
-type Cart = SubmitOrderRequest[];
-const cartState = useState<Cart | undefined>('cartState');
-
-
-const totalItems = computed(() => {
-    if (cartState == undefined) {
-      return 0
+// --- 2. PERSISTENCE & HYDRATION ---
+// On mount, check if a merchant ID is already saved in the browser
+onMounted(() => {
+  if (import.meta.client) {
+    const savedCart = sessionStorage.getItem('user_cart');
+    const savedSession = sessionStorage.getItem('merchant_id')
+    if (savedSession && !userSession.value) {
+      userSession.value = savedSession
     }
-    const finalAmount = ref(0)
-    for (const merchants of Object.entries(cartState.value ?? [])) {
-      for (const item of merchants[1].item_list) {
-        finalAmount.value += item.item_qty
-      }
-    }
-    return finalAmount.value
+  }
 })
+
+// Watch for changes (like logging out) to update storage
+watch(userSession, (value) => {
+  if (import.meta.client) {
+    if (!value) {
+      sessionStorage.removeItem('merchant_id')
+    } else {
+      sessionStorage.setItem('merchant_id', value)
+    }
+  }
+})
+
+// --- 3. COMPUTED & ACTIONS ---
+const merchantId = computed(() => userSession.value)
+
+function logout() {
+  userSession.value = ''
+  // Clear storage immediately to be safe
+  if (import.meta.client) {
+    sessionStorage.removeItem('merchant_id')
+  }
+  navigateTo('/login')
+}
 </script>
 
 <template>
@@ -83,6 +77,7 @@ const totalItems = computed(() => {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
+
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Menu</SidebarGroupLabel>
@@ -99,11 +94,16 @@ const totalItems = computed(() => {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter />
+
+      <SidebarFooter class="items-start p-4 flex flex-row gap-4" v-if="merchantId != ''">
+        <div class="text-sm mb-2">Logged in as Merchant ID {{ merchantId }}</div>
+        <Button @click="logout()" class="">Logout</Button>
+      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
+
     <SidebarInset>
-      <header class="flex px-3 py-5 h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
+      <header class="sticky top-0 z-20 bg-background flex px-3 py-5 h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
         <div class="flex flex-row flex-1 items-center gap-2 px-4 justify-between">
           <SidebarTrigger class="-ml-1 h-5 w-5" />
         </div>

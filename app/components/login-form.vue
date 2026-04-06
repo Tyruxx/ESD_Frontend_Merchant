@@ -1,114 +1,122 @@
 <script setup lang="ts">
-import type { HTMLAttributes } from 'vue'
-import { Check } from 'lucide-vue-next'
-import { cn } from '@/lib/utils'
+import { ref, onMounted, watch } from 'vue'
+import type { HTMLAttributes } from "vue"
+import { GalleryVerticalEnd, Info } from "lucide-vue-next" // Added Info icon
+import { cn } from "@/lib/utils"
 import { Button } from '@/components/ui/button'
-import { Spinner } from '@/components/ui/spinner'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { toast } from 'vue-sonner'
 import {
   Field,
   FieldDescription,
   FieldGroup,
   FieldLabel,
-  FieldSeparator,
 } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import {
-  GoogleSignInButton,
-  type CredentialResponse,
-} from 'vue3-google-signin'
-
-const { loggedIn, session, user: userSession, clear, fetch: refreshSession } = useUserSession()
-
-const loading = useState('loading-login')
-// handle success event
-type GoogleProfileInfo = {}
-const user = useState<GoogleProfileInfo | null | undefined>('user', () => null)
-const handleLoginSuccess = async (response: CredentialResponse) => {
-  loading.value = true
-  const { credential } = response
-
-  if (credential) {
-    const { data, error } = await useFetch<GoogleProfileInfo>('/api/google-login', {
-      method: 'POST',
-      body: {
-        token: credential,
-      },
-    })
-    if (error.value != undefined) {
-      throw createError({
-        statusCode: error.value.statusCode,
-        statusMessage: error.value.message,
-        fatal: true,
-      })
-    }
-    else {
-      user.value = data.value
-      await refreshSession()
-      await navigateTo('/')
-    }
-  }
-  loading.value = false
-}
-
-// handle an error event
-const handleLoginError = () => {
-  console.error('Login failed')
-}
 
 const props = defineProps<{
-  class?: HTMLAttributes['class']
+  class?: HTMLAttributes["class"]
 }>()
+
+const merchantId = ref('')
+const userSession = useState<string>('user_session', () => '')
+
+// --- 1. PERSISTENCE LOGIC ---
+watch(userSession, (newVal) => {
+  if (import.meta.client) {
+    if (newVal) {
+      sessionStorage.setItem('merchant_id', newVal)
+    } else {
+      sessionStorage.removeItem('merchant_id')
+    }
+  }
+})
+
+onMounted(() => {
+  if (import.meta.client) {
+    const savedId = sessionStorage.getItem('merchant_id')
+    if (savedId && !userSession.value) {
+      userSession.value = savedId
+    }
+  }
+})
+
+// --- 2. ACTIONS ---
+function setUserSession() {
+  const id = merchantId.value.trim()
+  
+  // Logic check: only '10' is allowed for this demo
+  if (id !== '10') {
+    toast.error('Invalid Merchant ID', {
+      description: 'Please use the demo ID "10" to access the dashboard.'
+    })
+    return
+  }
+
+  if (id) {
+    userSession.value = id
+    navigateTo('/')
+  }
+}
+
+// Helper to quickly fill the ID
+function useDemo() {
+  merchantId.value = '10'
+}
 </script>
 
 <template>
   <div :class="cn('flex flex-col gap-6', props.class)">
-    <Card class="py-8">
-      <CardHeader class="text-center">
-        <CardTitle class="text-xl">
-          Welcome to StarNote Converter
-        </CardTitle>
-        <CardDescription class="flex flex-col items-start text-base text-primary">
-          <div class="flex flex-row gap-2">
-            <Check />Track currencies in real time
+    <form @submit.prevent="setUserSession()">
+      <FieldGroup>
+        <div class="flex flex-col items-center gap-2 text-center">
+          <div class="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <GalleryVerticalEnd class="size-6" />
           </div>
-          <div class="flex flex-row gap-2">
-            <Check />Predict rates with AI
+          <h1 class="text-xl font-bold">Merchant Login</h1>
+          <FieldDescription>
+            Enter your ID to access the dashboard.
+          </FieldDescription>
+        </div>
+
+        <Field>
+          <FieldLabel for="merchantId">Merchant ID</FieldLabel>
+          <Input
+            id="merchantId"
+            type="text" 
+            placeholder="Enter ID..."
+            v-model="merchantId"
+            required
+            class="h-11"
+          />
+        </Field>
+
+        <div 
+          @click="useDemo"
+          class="flex items-center gap-3 p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 cursor-pointer transition-colors border-dashed"
+        >
+          <div class="bg-primary/20 p-1.5 rounded-md">
+            <Info class="size-4 text-primary" />
           </div>
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form>
-          <FieldGroup>
-            <Field>
-              <div class="flex justify-center">
-                <GoogleSignInButton
-                  v-if="!loading"
-                  @success="handleLoginSuccess"
-                  @error="handleLoginError"
-                />
-                <Button
-                  v-else
-                  disabled
-                >
-                  <Spinner />
-                  Loading
-                </Button>
-              </div>
-            </Field>
-          </FieldGroup>
-        </form>
-      </CardContent>
-    </Card>
-    <FieldDescription class="px-6 text-center">
-      By clicking continue, you agree to our Terms of Service
-      and Privacy Policy.
+          <div class="flex flex-col">
+            <span class="text-[11px] font-bold uppercase tracking-wider opacity-70">Demo Account</span>
+            <span class="text-xs font-medium">Use Merchant ID: <span class="font-bold text-primary">10</span></span>
+          </div>
+        </div>
+
+        <Field>
+          <Button 
+            type="submit" 
+            class="w-full h-11 font-bold"
+            :disabled="merchantId.trim() === ''"
+          >
+            Login
+          </Button>
+        </Field>
+      </FieldGroup>
+    </form>
+
+    <FieldDescription class="px-6 text-center text-[11px]">
+      By clicking continue, you agree to our <a href="#" class="underline underline-offset-4 hover:text-primary">Terms of Service</a>
     </FieldDescription>
   </div>
 </template>
