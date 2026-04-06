@@ -85,18 +85,13 @@ const totalItems = computed(() => {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Platform</SidebarGroupLabel>
+          <SidebarGroupLabel>Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton as-child>
                   <NuxtLink to="/">
                     <span>Home</span>
-                  </NuxtLink>
-                </SidebarMenuButton>
-                <SidebarMenuButton as-child>
-                  <NuxtLink to="/order">
-                    <span>Order</span>
                   </NuxtLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -111,14 +106,6 @@ const totalItems = computed(() => {
       <header class="flex px-3 py-5 h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
         <div class="flex flex-row flex-1 items-center gap-2 px-4 justify-between">
           <SidebarTrigger class="-ml-1 h-5 w-5" />
-          <Button class="flex flex-row" @click="goToCartPage()">
-            <div>
-              {{ totalItems }}
-            </div>
-            <div>
-              <ShoppingBag />
-            </div>
-          </Button>
         </div>
       </header>
       <slot />
