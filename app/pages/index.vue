@@ -34,7 +34,6 @@ const itemCatalogMap = ref<Map<number, string>>(new Map())
 let pollingInterval: any = null
 
 // Session handling
-const userSession = useState<string | null>('user_session')
 const merchantId = computed(() => userSession.value || '0')
 
 // --- 2. CONFIG & DESCRIPTIONS ---
@@ -169,6 +168,21 @@ onMounted(() => {
 })
 
 onUnmounted(() => clearInterval(pollingInterval))
+
+  const userSession = useState<string>('user_session', () => {
+    // This runs immediately when the state is first accessed
+    if (import.meta.client) {
+      return sessionStorage.getItem('customer_id') || ''
+    }
+    return ''
+  })
+
+  watch(userSession, (val) => {
+  // If we are on the client and the session is still empty after initialization
+  if (import.meta.client && !val) {
+    navigateTo('/login')
+  }
+  }, { immediate: true })
 </script>
 
 <template>
