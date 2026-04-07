@@ -34,6 +34,7 @@ const itemCatalogMap = ref<Map<number, string>>(new Map())
 let pollingInterval: any = null
 
 // Session handling
+const userSession = useState<string | null>('user_session')
 const merchantId = computed(() => userSession.value || '0')
 
 // --- 2. CONFIG & DESCRIPTIONS ---
@@ -168,25 +169,15 @@ onMounted(() => {
 })
 
 onUnmounted(() => clearInterval(pollingInterval))
-
-  const userSession = useState<string>('user_session', () => {
-    // This runs immediately when the state is first accessed
-    if (import.meta.client) {
-      return sessionStorage.getItem('merchant_id') || ''
-    }
-    return ''
-  })
-
-  watch(userSession, (val) => {
-  // If we are on the client and the session is still empty after initialization
-  if (import.meta.client && !val) {
-    navigateTo('/login')
-  }
-  }, { immediate: true })
 </script>
 
 <template>
   <div class="p-4 md:p-8 w-full max-w-4xl mx-auto space-y-4 min-h-screen bg-background">
+    <div v-if="merchantId !== '0'" class="fixed bottom-4 right-4 z-50">
+      <Badge variant="outline" :class="cn('text-[9px] font-mono shadow-sm', pending ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200')">
+        {{ pending ? 'REFRESHING...' : 'LIVE CONNECTED' }}
+      </Badge>
+    </div>
 
     <div class="flex flex-col gap-4 border-b pb-4">
       <div class="flex items-center justify-between">
