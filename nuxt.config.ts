@@ -49,5 +49,10 @@ export default defineNuxtConfig({
      * @default "@/components/ui"
      */
     componentDir: '@/components/ui',
-  }
+  },
+  routeRules: {
+      '/api/external/**': { 
+        proxy: 'http://40.83.77.78:8000/api/**' 
+      },
+    }
 })

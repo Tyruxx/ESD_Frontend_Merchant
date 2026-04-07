@@ -50,20 +50,20 @@ const statusGroups = [
 
 const currentStatusInfo = computed(() => statusGroups.find(s => s.id.toString() === activeTab.value))
 
-// --- 3. DATA FETCHING (REACTIVE mId FIX) ---
+// --- 3. DATA FETCHING (SECURE PROXY FIX) ---
 const formattedDateForComparison = computed(() => selectedDate.value.toISOString().split('T')[0])
 const displayDate = computed(() => selectedDate.value.toLocaleDateString('en-US', {
   weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
 }))
 
 const { data: rawResponse, pending, refresh } = await useFetch<any>(() => {
-  // Accessing merchantId.value here makes useFetch re-evaluate when it changes
-  return `http://40.83.77.78:8000/api/merchant/pickup/${merchantId.value}`
+  // FIXED: Added backticks and used the /api/external proxy path to avoid Mixed Content/Regex errors
+  return `/api/external/merchant/pickup/${merchantId.value}`
 }, {
   headers: {
     'apiKey': 'ZtQKCEZPetbrWHGPsnveYt4ySeav89us'
   },
-  watch: [merchantId] // Nuxt will refetch automatically if userSession updates
+  watch: [merchantId] 
 })
 
 // --- 4. CATALOG SYNC ---
@@ -81,7 +81,6 @@ async function fetchItemCatalog() {
   }
 }
 
-// Update catalog whenever response changes
 watch(rawResponse, (newVal) => {
   if (newVal) fetchItemCatalog()
 }, { immediate: true })
@@ -101,7 +100,8 @@ async function updateStatus(newStatus: number) {
   if (!selectedOrder.value || merchantId.value === '0') return
   isUpdating.value = true
   try {
-    await $fetch(`http://40.83.77.78:8000/api/merchant/pickup`, {
+    // FIXED: Using the proxy path here as well to avoid Mixed Content blocks on PUT requests
+    await $fetch(`/api/external/merchant/pickup`, {
       method: 'PUT',
       headers: {
         'apiKey': 'ZtQKCEZPetbrWHGPsnveYt4ySeav89us'
@@ -141,7 +141,6 @@ const filteredOrdersByStatus = computed(() => {
   const grouped: Record<string, any[]> = {}
   statusGroups.forEach(s => { grouped[s.id.toString()] = [] })
   
-  // MAPPED TO NEW JSON KEY: active_pickups
   const orders = rawResponse.value?.active_pickups
   if (!orders || !Array.isArray(orders)) return grouped
 
@@ -149,11 +148,9 @@ const filteredOrdersByStatus = computed(() => {
   const targetDate = formattedDateForComparison.value
 
   orders.forEach((order: any) => {
-    // 1. Date Filter
     const orderDate = order.eta?.split('T')[0] || order.order_time?.split('T')[0]
     if (orderDate !== targetDate) return
 
-    // 2. Search Filter
     const oId = order.order_id?.toString() || ""
     const plate = order.customer_plate?.toLowerCase() || ""
     
@@ -183,6 +180,12 @@ onUnmounted(() => clearInterval(pollingInterval))
 
 <template>
   <div class="p-4 md:p-8 w-full max-w-4xl mx-auto space-y-4 min-h-screen bg-background">
+    <div v-if="merchantId !== '0'" class="fixed bottom-4 right-4 z-50">
+      <Badge variant="outline" :class="cn('text-[9px] font-mono', pending ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200')">
+        {{ pending ? 'REFRESHING...' : 'LIVE CONNECTED' }}
+      </Badge>
+    </div>
+
     <div class="flex flex-col gap-4 border-b pb-4">
       <div class="flex items-center justify-between">
         <h1 class="text-4xl font-bold tracking-tight">Merchant Hub</h1>
