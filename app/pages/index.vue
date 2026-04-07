@@ -172,7 +172,7 @@ onUnmounted(() => clearInterval(pollingInterval))
   const userSession = useState<string>('user_session', () => {
     // This runs immediately when the state is first accessed
     if (import.meta.client) {
-      return sessionStorage.getItem('customer_id') || ''
+      return sessionStorage.getItem('merchant_id') || ''
     }
     return ''
   })
