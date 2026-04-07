@@ -54,5 +54,5 @@ export default defineNuxtConfig({
       '/api/external/**': { 
         proxy: 'http://40.83.77.78:8000/api/**' 
       },
-    }
+  }
 })
