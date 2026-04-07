@@ -33,7 +33,9 @@ const searchQuery = ref('')
 const itemCatalogMap = ref<Map<number, string>>(new Map())
 let pollingInterval: any = null
 
-const userSession = useState<string>('user_session')
+// Session handling
+const userSession = useState<string | null>('user_session')
+const merchantId = computed(() => userSession.value || '0')
 
 // --- 2. CONFIG & DESCRIPTIONS ---
 const statusGroups = [
@@ -48,30 +50,30 @@ const statusGroups = [
 
 const currentStatusInfo = computed(() => statusGroups.find(s => s.id.toString() === activeTab.value))
 
-// --- 3. DATA FETCHING ---
-const formattedDateForApi = computed(() => selectedDate.value.toISOString().split('T')[0])
+// --- 3. DATA FETCHING (REACTIVE mId FIX) ---
+const formattedDateForComparison = computed(() => selectedDate.value.toISOString().split('T')[0])
 const displayDate = computed(() => selectedDate.value.toLocaleDateString('en-US', {
   weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
 }))
 
-const { data: response, pending, refresh } = await useFetch<any>(() => {
-  const mId = userSession.value || '0'
-  return `https://personal-0xujcjfg.outsystemscloud.com/order/rest/order/order/${mId}?date=${formattedDateForApi.value}`
+const { data: rawResponse, pending, refresh } = await useFetch<any>(() => {
+  // Accessing merchantId.value here makes useFetch re-evaluate when it changes
+  return `http://40.83.77.78:8000/api/merchant/pickup/${merchantId.value}`
 }, {
-  watch: [selectedDate]
+  headers: {
+    'apiKey': 'ZtQKCEZPetbrWHGPsnveYt4ySeav89us'
+  },
+  watch: [merchantId] // Nuxt will refetch automatically if userSession updates
 })
 
-// --- 4. CATALOG SYNC (USING YOUR API STRUCTURE) ---
+// --- 4. CATALOG SYNC ---
 async function fetchItemCatalog() {
-  if (!userSession.value) return
+  if (merchantId.value === '0') return
   try {
-    // Calling your local handler which uses the OutSystems inventory endpoint
     const items = await $fetch<any[]>(`/api/item`, {
-      params: { merchant_id: userSession.value }
+      params: { merchant_id: merchantId.value }
     })
-    
     if (items && Array.isArray(items)) {
-      // Map the item_id to item_name for quick lookup
       itemCatalogMap.value = new Map(items.map(i => [i.item_id, i.item_name]))
     }
   } catch (e) {
@@ -79,8 +81,8 @@ async function fetchItemCatalog() {
   }
 }
 
-// Automatically refresh item names whenever orders are updated
-watch(response, (newVal) => {
+// Update catalog whenever response changes
+watch(rawResponse, (newVal) => {
   if (newVal) fetchItemCatalog()
 }, { immediate: true })
 
@@ -96,27 +98,32 @@ function changeDate(days: number) {
 }
 
 async function updateStatus(newStatus: number) {
-  if (!selectedOrder.value || !userSession.value) return
+  if (!selectedOrder.value || merchantId.value === '0') return
   isUpdating.value = true
   try {
-    await $fetch(`https://personal-0xujcjfg.outsystemscloud.com/order/rest/order/order`, {
+    await $fetch(`http://40.83.77.78:8000/api/merchant/pickup`, {
       method: 'PUT',
+      headers: {
+        'apiKey': 'ZtQKCEZPetbrWHGPsnveYt4ySeav89us'
+      },
       body: {
+        merchant_id: parseInt(merchantId.value),
         order_id: selectedOrder.value.order_id,
         order_status: newStatus,
-        merchant_id: parseInt(userSession.value),
         sc_id: selectedOrder.value.sc_id
       }
     })
     await refresh()
     isDetailsOpen.value = false
+  } catch (error) {
+    console.error('Update failed:', error)
   } finally { 
     isUpdating.value = false 
   }
 }
 
 // --- 6. UI HELPERS ---
-function getTabClass(colorName: string) {
+const getTabClass = (colorName: string): string => {
   const colorMap: Record<string, string> = {
     emerald: "bg-emerald-50 text-emerald-700 border-emerald-100 data-[state=active]:bg-emerald-600 data-[state=active]:text-white",
     blue:    "bg-blue-50 text-blue-700 border-blue-100 data-[state=active]:bg-blue-600 data-[state=active]:text-white",
@@ -129,18 +136,30 @@ function getTabClass(colorName: string) {
   return colorMap[colorName] || ""
 }
 
+// --- 7. FILTERING LOGIC ---
 const filteredOrdersByStatus = computed(() => {
   const grouped: Record<string, any[]> = {}
   statusGroups.forEach(s => { grouped[s.id.toString()] = [] })
-  if (!response.value?.data) return grouped
+  
+  // MAPPED TO NEW JSON KEY: active_pickups
+  const orders = rawResponse.value?.active_pickups
+  if (!orders || !Array.isArray(orders)) return grouped
 
   const query = searchQuery.value.trim().toLowerCase()
-  response.value.data.forEach((order: any) => {
+  const targetDate = formattedDateForComparison.value
+
+  orders.forEach((order: any) => {
+    // 1. Date Filter
+    const orderDate = order.eta?.split('T')[0] || order.order_time?.split('T')[0]
+    if (orderDate !== targetDate) return
+
+    // 2. Search Filter
     const oId = order.order_id?.toString() || ""
     const plate = order.customer_plate?.toLowerCase() || ""
+    
     if (!query || oId.includes(query) || plate.includes(query)) {
-      const key = order.order_status?.toString()
-      if (key && grouped[key]) grouped[key].push(order)
+      const key = (order.order_status ?? 1).toString()
+      if (grouped[key]) grouped[key].push(order)
     }
   })
   return grouped
@@ -169,10 +188,11 @@ onUnmounted(() => clearInterval(pollingInterval))
         <h1 class="text-4xl font-bold tracking-tight">Merchant Hub</h1>
         <Badge v-if="pending" variant="outline" class="animate-pulse border-primary text-primary text-[10px]">Syncing...</Badge>
       </div>
+      
       <div class="flex items-center justify-between bg-muted/40 p-1.5 border">
         <Button variant="ghost" size="icon" @click="changeDate(-1)"><ChevronLeft class="h-4 w-4" /></Button>
         <div class="flex flex-col items-center">
-          <span class="text-[9px] font-black text-muted-foreground uppercase tracking-widest text-center">View Schedule</span>
+          <span class="text-[9px] font-black text-muted-foreground uppercase tracking-widest text-center">Schedule View</span>
           <span class="text-xs font-black uppercase">{{ displayDate }}</span>
         </div>
         <Button variant="ghost" size="icon" @click="changeDate(1)"><ChevronRight class="h-4 w-4" /></Button>
@@ -209,37 +229,57 @@ onUnmounted(() => clearInterval(pollingInterval))
         <div v-for="order in filteredOrdersByStatus[status.id.toString()]" :key="order.order_id" 
           @click="selectedOrder = order; isDetailsOpen = true"
           class="w-full border p-5 bg-card flex items-center justify-between border-l-[10px] border-l-primary/20 cursor-pointer transition-all hover:translate-x-1 hover:shadow-md active:scale-95">
-          <div class="flex flex-col"><span class="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">Reference</span><span class="text-xl font-black italic">#{{ order.order_id }}</span></div>
-          <div class="flex flex-col items-center"><span class="text-[10px] font-bold text-muted-foreground uppercase">Expected</span><span class="text-xs font-black bg-muted px-2 py-1">{{ formatTime(order.eta) }}</span></div>
+          <div class="flex flex-col">
+            <span class="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">Reference</span>
+            <span class="text-xl font-black italic">#{{ order.order_id }}</span>
+          </div>
+          <div class="flex flex-col items-center">
+            <span class="text-[10px] font-bold text-muted-foreground uppercase">Expected</span>
+            <span class="text-xs font-black bg-muted px-2 py-1">{{ formatTime(order.eta || order.order_time) }}</span>
+          </div>
           <div class="flex items-center gap-3">
-            <div class="text-right"><span class="text-[10px] font-bold text-muted-foreground uppercase block">Vehicle</span><span class="text-xs font-black uppercase text-primary">{{ order.customer_plate || 'N/A' }}</span></div>
+            <div class="text-right">
+              <span class="text-[10px] font-bold text-muted-foreground uppercase block">Vehicle</span>
+              <span class="text-xs font-black uppercase text-primary">{{ order.customer_plate || 'N/A' }}</span>
+            </div>
             <div class="p-1.5 bg-muted"><ChevronRight class="h-4 w-4" /></div>
           </div>
+        </div>
+
+        <div v-if="filteredOrdersByStatus[status.id.toString()]?.length === 0 && !pending" class="py-24 text-center opacity-20 flex flex-col items-center">
+          <PackageOpen class="h-12 w-12 mb-3" />
+          <p class="text-xs font-black uppercase tracking-widest">No activity found</p>
         </div>
       </TabsContent>
     </Tabs>
 
     <Dialog :open="isDetailsOpen" @update:open="isDetailsOpen = $event">
       <DialogContent class="max-w-[92vw] sm:max-w-[425px] p-0 overflow-hidden shadow-2xl border font-sans">
-        <DialogHeader class="p-8 bg-muted/30 border-b">
+        <DialogHeader class="p-8 bg-muted/30 border-b text-left">
           <div class="space-y-1">
-            <span class="text-[10px] font-black uppercase tracking-widest text-primary">Order Summary</span>
+            <span class="text-[10px] font-black uppercase tracking-widest text-primary">Live Order</span>
             <DialogTitle class="text-3xl font-black italic uppercase">Order #{{ selectedOrder?.order_id }}</DialogTitle>
           </div>
           <div class="grid grid-cols-2 gap-4 mt-6">
-            <div class="bg-card p-4 border border-dashed text-center"><span class="text-[9px] font-black uppercase text-muted-foreground block mb-1">Plate</span><span class="text-xs font-black uppercase">{{ selectedOrder?.customer_plate || 'N/A' }}</span></div>
-            <div class="bg-card p-4 border border-dashed text-center"><span class="text-[9px] font-black uppercase text-muted-foreground block mb-1">Arrival</span><span class="text-xs font-black">{{ formatTime(selectedOrder?.eta) }}</span></div>
+            <div class="bg-card p-4 border border-dashed text-center">
+              <span class="text-[9px] font-black uppercase text-muted-foreground block mb-1">Plate</span>
+              <span class="text-xs font-black uppercase">{{ selectedOrder?.customer_plate || 'N/A' }}</span>
+            </div>
+            <div class="bg-card p-4 border border-dashed text-center">
+              <span class="text-[9px] font-black uppercase text-muted-foreground block mb-1">Schedule</span>
+              <span class="text-xs font-black">{{ formatTime(selectedOrder?.eta || selectedOrder?.order_time) }}</span>
+            </div>
           </div>
         </DialogHeader>
 
         <div class="p-8 space-y-6 bg-card">
           <div class="space-y-4">
-            <h3 class="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] border-b pb-2">Line Items</h3>
-            <div v-for="item in selectedOrder?.order_items" :key="item.item_id" class="flex justify-between items-center text-sm border-b border-dashed border-muted/50 pb-3">
+            <h3 class="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] border-b pb-2">Order Items</h3>
+            <div v-if="selectedOrder?.order_items" v-for="item in selectedOrder.order_items" :key="item.item_id" class="flex justify-between items-center text-sm border-b border-dashed border-muted/50 pb-3">
               <div class="flex flex-col">
                 <span class="font-black italic uppercase text-xs">{{ getItemName(item.item_id) }}</span>
-                <span class="text-[8px] text-muted-foreground font-black uppercase tracking-tighter">ITEM ID: {{ item.item_id }}</span>
-                <span class="text-[9px] text-muted-foreground font-bold uppercase mt-1">Qty: {{ item.item_qty }}</span>
+                <span class="text-[8px] text-muted-foreground font-black uppercase tracking-tighter">ID: {{ item.item_id }}</span>
+                <span class="text-[9px] text-muted-foreground font-bold uppercase mt-1">Quantity: {{ item.item_qty }}</span>
               </div>
               <span class="font-black text-primary text-xs">${{ (item.item_price * item.item_qty).toFixed(2) }}</span>
             </div>
@@ -253,7 +293,9 @@ onUnmounted(() => clearInterval(pollingInterval))
           </template>
           <div v-else class="bg-muted/50 p-6 flex items-center justify-center gap-3 border border-dashed">
             <Info class="h-5 w-5 text-muted-foreground" />
-            <span class="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Status: {{ statusGroups.find(s => s.id === selectedOrder?.order_status)?.label || 'Unknown' }}</span>
+            <span class="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+              Current Status: {{ statusGroups.find(s => s.id === selectedOrder?.order_status)?.label || 'Processed' }}
+            </span>
           </div>
         </div>
       </DialogContent>
