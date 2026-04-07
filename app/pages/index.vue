@@ -50,19 +50,15 @@ const statusGroups = [
 
 const currentStatusInfo = computed(() => statusGroups.find(s => s.id.toString() === activeTab.value))
 
-// --- 3. DATA FETCHING (SECURE PROXY FIX) ---
+// --- 3. DATA FETCHING (INTERNAL PROXY) ---
 const formattedDateForComparison = computed(() => selectedDate.value.toISOString().split('T')[0])
 const displayDate = computed(() => selectedDate.value.toLocaleDateString('en-US', {
   weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
 }))
 
-const { data: rawResponse, pending, refresh } = await useFetch<any>(() => {
-  // FIXED: Added backticks and used the /api/external proxy path to avoid Mixed Content/Regex errors
-  return `/api/external/merchant/pickup/${merchantId.value}`
-}, {
-  headers: {
-    'apiKey': 'ZtQKCEZPetbrWHGPsnveYt4ySeav89us'
-  },
+// We fetch from our internal server/api/pickup.get.ts
+const { data: rawResponse, pending, refresh } = await useFetch<any>('/api/pickup', {
+  query: { merchantId: merchantId },
   watch: [merchantId] 
 })
 
@@ -100,12 +96,9 @@ async function updateStatus(newStatus: number) {
   if (!selectedOrder.value || merchantId.value === '0') return
   isUpdating.value = true
   try {
-    // FIXED: Using the proxy path here as well to avoid Mixed Content blocks on PUT requests
-    await $fetch(`/api/external/merchant/pickup`, {
+    // We send to our internal server/api/pickup.put.ts
+    await $fetch('/api/pickup', {
       method: 'PUT',
-      headers: {
-        'apiKey': 'ZtQKCEZPetbrWHGPsnveYt4ySeav89us'
-      },
       body: {
         merchant_id: parseInt(merchantId.value),
         order_id: selectedOrder.value.order_id,
@@ -180,11 +173,6 @@ onUnmounted(() => clearInterval(pollingInterval))
 
 <template>
   <div class="p-4 md:p-8 w-full max-w-4xl mx-auto space-y-4 min-h-screen bg-background">
-    <div v-if="merchantId !== '0'" class="fixed bottom-4 right-4 z-50">
-      <Badge variant="outline" :class="cn('text-[9px] font-mono', pending ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200')">
-        {{ pending ? 'REFRESHING...' : 'LIVE CONNECTED' }}
-      </Badge>
-    </div>
 
     <div class="flex flex-col gap-4 border-b pb-4">
       <div class="flex items-center justify-between">

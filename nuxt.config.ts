@@ -18,7 +18,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     geminiApiKey: '',
     googleClientId: '',
-    merchantManagementServiceApiKey: process.env.NUXT_MERCHANT_MANAGEMENT_SERVICE_API_KEY || '',
+    merchantManagementServiceApiKey: process.env.MERCHANT_MANAGEMENT_SERVICE_API_KEY,
     public: {
     },
   },
